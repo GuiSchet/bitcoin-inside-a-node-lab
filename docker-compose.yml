@@ -1,0 +1,39 @@
+# Lab: tres nodos Bitcoin Core 31.1 en regtest, conectados en línea:
+#
+#   alice ──► bob ──► carol
+#
+# (la flecha indica quién inicia la conexión)
+x-node: &node
+  build: .
+  image: bitcoin-inside-a-node-lab:31.1
+  volumes:
+    - ./conf/bitcoin.conf:/home/bitcoin/.bitcoin/bitcoin.conf:ro
+    - ./scripts:/lab/scripts:ro
+  stop_grace_period: 30s
+  # "healthy" cuando el RPC responde: así alice y bob arrancan después de que
+  # el nodo al que se conectan ya está escuchando.
+  healthcheck:
+    test: ["CMD", "bitcoin-cli", "getblockchaininfo"]
+    interval: 2s
+    timeout: 5s
+    retries: 30
+
+services:
+  alice:
+    <<: *node
+    hostname: alice
+    command: ["bitcoind", "-addnode=bob:18444"]
+    depends_on:
+      bob:
+        condition: service_healthy
+  bob:
+    <<: *node
+    hostname: bob
+    command: ["bitcoind", "-addnode=carol:18444"]
+    depends_on:
+      carol:
+        condition: service_healthy
+  carol:
+    <<: *node
+    hostname: carol
+    command: ["bitcoind"]
